@@ -95,7 +95,7 @@ class Game {
     for (let definition of definitionsResponse.data) {
       if (definition.text) {
         // HACK: Some definitions include a limited set of html tags. Because we generally don't
-        // expect the definitions to have other carets, we naively strip tags from the string.
+        // expect the definitions to have other angle brackets, we naively strip tags from the string.
         this.gameData.currentRound.definition = definition.text.replace(/<([^>]+)>/ig, '');
         break;
       }
@@ -145,7 +145,6 @@ class Game {
       const responses = this.gameData.currentRound.responses
       if (isLastPlayer) {
         let definitions = '';
-        // Could add real definition here and then shuffle array. Downside is I don't update the game at all during the "check round" phase and I'd have to in order to do this
         responses.forEach((response, index) => {
           definitions += `${index + 1}: ${response.definition}\n`
         });
@@ -238,7 +237,6 @@ class Game {
   }
 
   _updateGame() {
-    // TODO: Only update changed fields to avoid race condition concurrency issues.
     return twilioClient.sync.services(this.syncSID)
       .documents(this.name)
       .update({data: this.gameData})

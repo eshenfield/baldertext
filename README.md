@@ -70,6 +70,7 @@ Take the credentials you gathered above and replace the `XXXX`s in the example `
 
 
 ## Run BalderText locally on your own system
+You might want to add additional functionality or play around with the existing code. To do so, you can run BalderText locally and tinker with the game!
 
 ### Requirements
 * [Node](https://nodejs.org/en/download/) version 10 or greater, and NPM (included in the Node installation bundle).

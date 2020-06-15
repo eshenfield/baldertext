@@ -34,7 +34,6 @@ exports.handler = async function(context, event, callback) {
       return callback(null, twiml)
     } else { return callback() }
 
-  // Should keep track of each player's state to log responses instead of parsing message string
   } else if (!Number.isNaN(parseInt(message.trim()))) {
     await baldertextGame.logResponse('vote', playerId, message);
     const response = await baldertextGame.checkRound('vote', playerId);
