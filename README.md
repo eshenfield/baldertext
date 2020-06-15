@@ -2,6 +2,7 @@
 
 BalderText is an SMS-variant of a classic board game named Balderdash. It offers an additional way to engage with friends and family from a distance. The game is built in JavaScript using [Twilio Functions](https://www.twilio.com/docs/runtime/functions-assets-api) and can be easily deployed using the [Serverless toolkit](https://www.twilio.com/docs/labs/serverless-toolkit).
 
+To play with your own group, follow the instructions below in [Deploy your own BalderText game](#deploy-your-own-baldertext-game) and use the [Gameplay](#gameplay) instructions to get started quickly.
 
 ## Gameplay
 
