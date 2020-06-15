@@ -272,6 +272,6 @@ function timeout(ms) {
 }
 
 async function sleep() {
-  await timeout(3000);
+  await timeout(1000);
   return;
 }
