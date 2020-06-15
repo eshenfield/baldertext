@@ -15,6 +15,7 @@ Each player who chooses the real definition gets `2 points`
 Each player gets `1 point` for every other player who chooses their fake definition
 
 ### How to Play
+BalderText supports 2-8 players.
 1. Every player texts ‘Join game’ to your game number with a username. When all players have joined, one player kicks off the game by texting ‘Start game’ to the game number.
 2. All players receive the same word in a text, with a prompt to generate a fake definition for the word that other players will be likely to pick. The players are prompted to respond with ‘Definition ______’ (including their made-up definition).
 3. Once everyone has submitted their fake definition, all players receive every submitted definition as well as the real definition (in random order). Each player votes on which definition they think is the real one.

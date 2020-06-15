@@ -10,6 +10,7 @@ class Game {
     this.syncSID = 'default';
     this.gameNumber = options.gameNumber;
     this.numRounds = 3;
+    this.maxPlayers = 8;
   }
 
   async load() {
@@ -71,6 +72,9 @@ class Game {
     username = username ? username : playerId;
     this.gameData.playerIdToUserName[playerId] = username;
     const numPlayers = Object.keys(this.gameData.scores).length;
+    if (numPlayers === this.maxPlayers) {
+      return numPlayers;
+    }
     return this._updateGame().then(() => Promise.resolve(numPlayers));
   }
 

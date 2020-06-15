@@ -14,6 +14,8 @@ exports.handler = async function(context, event, callback) {
       let numPlayers = await baldertextGame.addPlayer(playerId, username);
       if (numPlayers === 1) {
         twiml.message("Sure! Respond with 'Start game' when everyone has joined.")
+      } else if (numPlayers === baldertextGame.maxPlayers) {
+        twiml.message("This game is already full. Maybe you can join the next game?")
       } else {
         twiml.message("Awesome, you're in! The game will start when everyone has joined")
       }
