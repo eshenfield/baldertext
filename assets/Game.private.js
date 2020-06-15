@@ -7,9 +7,9 @@ class Game {
     this.context = options.context;
     this.twilioClient = options.context.getTwilioClient();
     this.name = 'baldertext';
+    this.syncSID = 'default';
     this.gameNumber = options.gameNumber;
     this.numRounds = 3;
-    this.syncSID = 'default';
   }
 
   async load() {
@@ -49,7 +49,7 @@ class Game {
         return game;
       })
       .catch((err) => {
-        throw err
+        throw err;
       });
   }
 
@@ -62,7 +62,7 @@ class Game {
         return game;
       })
       .catch((err) => {
-        throw err
+        throw err;
       });
   }
 
@@ -71,7 +71,7 @@ class Game {
     username = username ? username : playerId;
     this.gameData.playerIdToUserName[playerId] = username;
     const numPlayers = Object.keys(this.gameData.scores).length;
-    return this._updateGame().then(() => Promise.resolve(numPlayers))
+    return this._updateGame().then(() => Promise.resolve(numPlayers));
   }
 
   async startRound() {
@@ -83,7 +83,6 @@ class Game {
       wordIdx = Math.floor(Math.random() * balderdashWords.length);
     }
     this.gameData.currentRound.word = balderdashWords[wordIdx];
-
     let definitionsResponse;
     try {
       definitionsResponse = await axios.get(getWordnikUrl(balderdashWords[wordIdx], this.context.WORDNIK_API_KEY));
@@ -103,7 +102,7 @@ class Game {
 
     return this._updateGame().then(() => {
       const message = `Round #${this.gameData.numCompletedRounds + 1}: Respond with your most convincing definition for the word:
-        '${this.gameData.currentRound.word}'. Be sure to start your response with 'Definition'.`
+        '${this.gameData.currentRound.word}'. Be sure to start your response with 'Definition'.`;
       return this._sendToAllPlayers(message);
     })
   }
@@ -112,6 +111,7 @@ class Game {
     if (responseType === 'definition') {
       const definition = message.replace(/definition/i, '').trim();
 
+      // Insert the real definition at the pre-determined random index in the responses.
       if (this.gameData.currentRound.responses.length === this.gameData.currentRound.definitionIdx - 1) {
         this.gameData.currentRound.responses.push({
           playerId: 'true',
@@ -127,47 +127,54 @@ class Game {
         votes: []
       });
 
-      return this._updateGame();
-
     } else if (responseType === 'vote') {
       const voteIdx = parseInt(message.trim()) - 1;
       this.gameData.currentRound.numVotesSubmit++;
-      this.gameData.currentRound.responses[voteIdx].votes.push(playerId)
-      return this._updateGame();
+      this.gameData.currentRound.responses[voteIdx].votes.push(playerId);
     } else {
-      throw new Error(`Invalid responseType ${responseType}`)
+      throw new Error(`Invalid responseType ${responseType}`);
     }
+
+    return this._updateGame();
   }
 
   async checkRound(roundPhase) {
     if (roundPhase === 'definition') {
       const isLastPlayer = this.gameData.currentRound.numDefinitionsSubmit === Object.keys(this.gameData.scores).length;
-      const responses = this.gameData.currentRound.responses
+      // All players have submitted definitions, trigger voting round by sending definitions
       if (isLastPlayer) {
         let definitions = '';
-        responses.forEach((response, index) => {
-          definitions += `${index + 1}: ${response.definition}\n`
+        this.gameData.currentRound.responses.forEach((response, index) => {
+          definitions += `${index + 1}: ${response.definition}\n`;
         });
-        this._sendToAllPlayers("Vote for the definition you think is real by responding with the number of your choice.")
+        this._sendToAllPlayers("Vote for the definition you think is real by responding with the number of your choice.");
+        // Wait a bit to ensure order of SMS delivery
         await sleep();
         await this._sendToAllPlayers(definitions);
       } else {
-        return "Roger that, I've logged your definition. Keep an eye out for the voting round!"
+        return "Roger that, I've logged your definition. Keep an eye out for the voting round!";
       }
+
     } else if (roundPhase === 'vote') {
       const isLastPlayer = this.gameData.currentRound.numVotesSubmit === Object.keys(this.gameData.scores).length;
+      // All players have voted, score the round and send a score summary
       if (isLastPlayer) {
         await this._scoreRound();
-        let roundSummary = `The real answer was: ${this.gameData.currentRound.definition}\n`
-        roundSummary += 'Scores:\n'
+        let roundSummary = `The real answer was: ${this.gameData.currentRound.definition}\n`;
+        roundSummary += 'Scores:\n';
         for (let playerId in this.gameData.scores) {
-          roundSummary += `${this.gameData.playerIdToUserName[playerId]}: ${this.gameData.scores[playerId]}\n`
+          roundSummary += `${this.gameData.playerIdToUserName[playerId]}: ${this.gameData.scores[playerId]}\n`;
         }
         await this._sendToAllPlayers(roundSummary);
+        // Wait a bit to ensure order of SMS delivery
         await sleep();
+
+        // All rounds are complete, end the game
         if (this.gameData.numCompletedRounds === this.numRounds) {
-          await this._sendToAllPlayers(`Aaand the final results are in...the winner is ${this.gameData.playerIdToUserName[this.gameData.rankings[0]]}!`)
+          await this._sendToAllPlayers(`Aaand the final results are in...the winner is ${this.gameData.playerIdToUserName[this.gameData.rankings[0]]}!`);
           await this.removeGame();
+
+        // This round is over, start a new round
         } else {
           await this._resetRound();
           await this.startRound();
@@ -186,7 +193,7 @@ class Game {
       .remove()
       .then(() => {
         return
-      })
+      });
   }
 
   async _resetRound() {
@@ -213,9 +220,9 @@ class Game {
           from: this.gameNumber,
           to: number
         })
-      return true
+      return true;
     }, (err) => {
-      if (err) throw err
+      if (err) throw err;
     })
   }
 
@@ -231,12 +238,12 @@ class Game {
     }
 
     this.gameData.rankings = Object.keys(this.gameData.scores)
-      .sort((a, b) => {return this.gameData.scores[b] - this.gameData.scores[a]})
+      .sort((a, b) => {return this.gameData.scores[b] - this.gameData.scores[a]});
 
-    return this._updateGame()
+    return this._updateGame();
   }
 
-  _updateGame() {
+  async _updateGame() {
     return twilioClient.sync.services(this.syncSID)
       .documents(this.name)
       .update({data: this.gameData})
