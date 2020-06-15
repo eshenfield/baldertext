@@ -9,6 +9,7 @@ class Game {
     this.name = 'baldertext';
     this.gameNumber = options.gameNumber;
     this.numRounds = 3;
+    this.syncSID = 'default';
   }
 
   async load() {
@@ -40,7 +41,7 @@ class Game {
       seenWords: []
     }
 
-    return twilioClient.sync.services(this.context.SYNC_SERVICE_SID)
+    return twilioClient.sync.services(this.syncSID)
       .documents
       .create({uniqueName: this.name, data: initData})
       .then((game) => {
@@ -53,7 +54,7 @@ class Game {
   }
 
   async fetch() {
-    return twilioClient.sync.services(this.context.SYNC_SERVICE_SID)
+    return twilioClient.sync.services(this.syncSID)
       .documents(this.name)
       .fetch()
       .then((game) => {
@@ -181,7 +182,7 @@ class Game {
   }
 
   async removeGame() {
-    this.twilioClient.sync.services(this.context.SYNC_SERVICE_SID)
+    this.twilioClient.sync.services(this.syncSID)
       .documents(this.name)
       .remove()
       .then(() => {
@@ -238,7 +239,7 @@ class Game {
 
   _updateGame() {
     // TODO: Only update changed fields to avoid race condition concurrency issues.
-    return twilioClient.sync.services(this.context.SYNC_SERVICE_SID)
+    return twilioClient.sync.services(this.syncSID)
       .documents(this.name)
       .update({data: this.gameData})
       .then((game) => {
