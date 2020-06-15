@@ -59,16 +59,13 @@ These are the commands you can text to your configured BalderText number:
 * A free or paid [Twilio account](https://www.twilio.com/try-twilio). You'll need the account SID and the auth token for your `.env` file.
 * [A Wordnik API key](https://developer.wordnik.com/) to fetch word definitions. You'll need the API key in your `.env` file.
 
-### Credentials and your .env file
-Rename the included `.env.example` file to `.env`.
-Take the credentials you gathered above and replace the `XXXX`s in the example `.env` file with your real credentials.
-
 ### Deploy
 1. Clone this repository `git clone git@github.com:eshenfield/baldertext.git` to your machine.
 2. Run `npm install` inside the BalderText directory to set up the Twilio Serverless toolkit.
-3. Run `npm deploy` to deploy your Baldertext instance using the Twilio Serverless toolkit. It should take a minute or two, and when the deploy is complete, it will list out the **Deployment Details** in your terminal. Copy the url listed under "Functions" (it should end in '/game') and save it for the next step.
-4. From the Twilio console, configure your phone number to respond to incoming messages with a `Webhook` that makes an `HTTP Post` request to the URL you saved in step 3.
-5. Try texting 'join game' to your number to make sure everything is working!
+3. Rename the included `.env.example` file to `.env` and replace the `XXXX` placeholders with the credentials you gathered above.
+4. Run `npm run deploy` to deploy your Baldertext instance using the Twilio Serverless toolkit. It should take a minute or two, and when the deploy is complete, it will list out the **Deployment Details** in your terminal. Copy the url listed under "Functions" (it should end in '/game') and save it for the next step.
+5. From the Twilio console, configure your phone number to respond to incoming messages with a `Webhook` that makes an `HTTP Post` request to the URL you saved in step 3.
+6. Try texting 'join game' to your number to make sure everything is working!
 
 
 ## Run BalderText locally on your own system
@@ -80,15 +77,12 @@ You might want to add additional functionality or play around with the existing 
 * A free or paid [Twilio account](https://www.twilio.com/try-twilio). You'll need the account SID and the auth token for your `.env` file.
 * [A Wordnik API key](https://developer.wordnik.com/) to fetch word definitions. You'll need the API key in your `.env` file.
 
-### Credentials and your .env file
-Rename the included `.env.example` file to `.env`.
-Take the credentials you gathered above and replace the `XXXX`s in the example `.env` file with your real credentials.
-
 ### Run
 1. Clone this repository `git clone git@github.com:eshenfield/baldertext.git` to your machine.
 2. Run `npm install` to install the required project dependencies.
-3. Run `npm run start` to start your server.
-4. Start up `ngrok` to expose http://localhost:3000 at a different `.ngrok.io` url.
-5. From the Twilio console, configure your phone number to respond to incoming messages with a `Webhook` that makes an `HTTP Post` request to `your-ngrok-domain.ngrok.io/game`.
-6. Try texting 'join game' to your number to make sure everything is working!
+3. Rename the included `.env.example` file to `.env` and replace the `XXXX` placeholders with the credentials you gathered above.
+4. Run `npm run start` to start your server.
+5. Start up `ngrok` to expose http://localhost:3000 at a different `.ngrok.io` url.
+6. From the Twilio console, configure your phone number to respond to incoming messages with a `Webhook` that makes an `HTTP Post` request to `your-ngrok-domain.ngrok.io/game`.
+7. Try texting 'join game' to your number to make sure everything is working!
 
