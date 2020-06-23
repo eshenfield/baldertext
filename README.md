@@ -57,7 +57,7 @@ These are the commands you can text to your configured BalderText number:
 ### Requirements
 * [Node](https://nodejs.org/en/download/) version 10 or greater, and NPM (included in the Node installation bundle).
 * A free or paid [Twilio account](https://www.twilio.com/try-twilio). You'll need the account SID and the auth token for your `.env` file.
-* [A Wordnik API key](https://developer.wordnik.com/) to fetch word definitions. You'll need the API key in your `.env` file.
+* [An Oxford Dictionaries API Key](https://developer.oxforddictionaries.com/) to fetch word definitions. You can sign up for free 'Prototype' credentials [here](https://developer.oxforddictionaries.com/signup?plan_ids[]=2357355970463). You'll need the Application ID and Application Key for your `.env` file.
 
 ### Deploy
 1. Clone this repository `git clone git@github.com:eshenfield/baldertext.git` to your machine.
@@ -75,7 +75,7 @@ You might want to add additional functionality or play around with the existing 
 * [Node](https://nodejs.org/en/download/) version 10 or greater, and NPM (included in the Node installation bundle).
 * [ngrok](https://ngrok.com/) -- this utility connects the development version of BalderText running on your system to a public URL that Twilio can connect to. You can download a copy for Windows, MacOs, or Linux [here](https://ngrok.com/download).
 * A free or paid [Twilio account](https://www.twilio.com/try-twilio). You'll need the account SID and the auth token for your `.env` file.
-* [A Wordnik API key](https://developer.wordnik.com/) to fetch word definitions. You'll need the API key in your `.env` file.
+* [An Oxford Dictionaries API Key](https://developer.oxforddictionaries.com/) to fetch word definitions. You can sign up for free 'Prototype' credentials [here](https://developer.oxforddictionaries.com/signup?plan_ids[]=2357355970463). You'll need the Application ID and Application Key for your `.env` file.
 
 ### Run
 1. Clone this repository `git clone git@github.com:eshenfield/baldertext.git` to your machine.

@@ -190,8 +190,10 @@ class Game {
     let message;
     if (this.data.state === 'pending') {
       message = "There's no active game to end! Respond with 'Join game' to join a new game.";
-    } else {
+    } else if (this.data.rankings) {
       message = `And the final results are in! The winner of this game is...\n\n${this.data.players[this.data.rankings[0]].username}! Congratulations, you're a real wordsmith!`
+    } else {
+      message = "Got it -- I've ended the game. Respond with 'Join game' to join a new game."
     }
 
     this.data = _.cloneDeep(INIT_GAME_DATA);
@@ -238,27 +240,42 @@ class Game {
   }
 
   async _setRoundWord() {
+    let wordAndDefinition = {};
+    while (!wordAndDefinition.word) {
+      try {
+        wordAndDefinition = await this._getWordAndDefinition();
+      } catch {
+        continue;
+      }
+    }
+    this.data.currentRound.word = wordAndDefinition.word;
+    this.data.currentRound.definition = wordAndDefinition.definition;
+    return;
+  }
+
+  async _getWordAndDefinition() {
+    let word, definitionResponse, definition;
     let wordIdx = Math.floor(Math.random() * balderdashWords.length);
+
     while (this.data.seenWords.indexOf(balderdashWords[wordIdx]) > -1) {
       wordIdx = Math.floor(Math.random() * balderdashWords.length);
     }
-    this.data.currentRound.word = balderdashWords[wordIdx];
-    let definitionsResponse;
+    word = balderdashWords[wordIdx];
+
     try {
-      definitionsResponse = await axios.get(getWordnikUrl(balderdashWords[wordIdx], this.context.WORDNIK_API_KEY));
+      let axiosOptions = getAxiosOptions(word, {
+        appId: this.context.OXFORD_APP_ID,
+        appKey: this.context.OXFORD_APP_KEY
+      })
+      definitionResponse = await axios.get(axiosOptions.url, {headers: axiosOptions.headers});
+      definition = parseDefinition(definitionResponse.data);
     } catch (err) {
-      // TODO: If error is 404, just try again with a different word
+      console.log(`Couldn't get definition for word: ${word}`)
+      this.data.seenWords.push(word)
       throw err;
     }
 
-    for (let definition of definitionsResponse.data) {
-      if (definition.text) {
-        // HACK: Some definitions include a limited set of html tags. Because we generally don't
-        // expect the definitions to have other angle brackets, we naively strip tags from the string.
-        this.data.currentRound.definition = definition.text.replace(/<([^>]+)>/ig, '');
-        break;
-      }
-    }
+    return {word, definition}
   }
 
   _logResponse(responseType, playerId, message) {
@@ -323,6 +340,27 @@ class Game {
 
 module.exports = Game;
 
-function getWordnikUrl(word, key) {
-    return `https://api.wordnik.com/v4/word.json/${word}/definitions?limit=200&includeRelated=false&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=${key}`;
+function getAxiosOptions(word, credentials) {
+  return {
+    url: `https://od-api.oxforddictionaries.com/api/v2/entries/en-gb/${word}?fields=definitions&strictMatch=false`,
+    headers: {
+      app_id: credentials.appId,
+      app_key: credentials.appKey
+    }
+  }
+}
+
+function parseDefinition(data) {
+  for (let result of data.results) {
+    for (let lexicalEntry of result.lexicalEntries) {
+      for (let entry of lexicalEntry.entries) {
+        for (let sense of entry.senses) {
+          if (sense.definitions.length > 0) {
+            return sense.definitions[0];
+          }
+        }
+      }
+    }
+  }
+  throw new Error("Couldn't parse definition")
 }
