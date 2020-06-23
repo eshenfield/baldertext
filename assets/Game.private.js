@@ -1,92 +1,248 @@
-const async = require('async');
+const _ = require('lodash');
 const axios = require('axios');
 const balderdashWords = require(Runtime.getAssets()['/balderdash-words.js'].path);
+
+const INIT_GAME_DATA = {
+  state: 'pending',
+  players: {},
+  currentRound: {},
+  seenWords: [],
+  numCompletedRounds: 0
+}
+
+const INIT_ROUND_DATA = {
+  word: null,
+  definition: null,
+  responses: []
+}
 
 class Game {
   constructor(options) {
     this.context = options.context;
     this.twilioClient = options.context.getTwilioClient();
+    this.gameNumber = options.gameNumber;
+
     this.name = 'baldertext';
     this.syncSID = 'default';
-    this.gameNumber = options.gameNumber;
-    this.numRounds = 3;
+    this.totalNumRounds = 3;
     this.maxPlayers = 8;
+    this.minPlayers = 2;
   }
 
   async load() {
     try {
-      const game = await this.fetch();
+      await this._fetch();
     } catch (err) {
       if (err.status === 404) {
-        await this.init();
+        await this._init();
       } else {
         throw err;
       }
     }
   }
 
-  async init() {
-    let initData = {
-      state: 'pending',
-      numCompletedRounds: 0,
-      scores: {},
-      playerIdToUserName: {},
-      currentRound: {
-        word: null,
-        definition: null,
-        definitionIdx: null,
-        responses: [],
-        numDefinitionsSubmit: 0,
-        numVotesSubmit: 0
-      },
-      seenWords: []
+  async handlePlayerInput(playerId, input) {
+    const allPlayerNumbers = Object.keys(this.data.players);
+    const player = this.data.players[playerId];
+
+    if (input.match(/join game/i)) {
+      if (player) {
+        return {
+          to: [playerId],
+          text: "You're already a part of this game! Respond with 'Start game' if you're ready to play."
+        }
+      }
+      return {
+        to: [playerId],
+        text: this._addPlayer(playerId, input.replace(/join game/i, '').trim())
+      }
+
+    } else if (input.match(/start game/i)) {
+      if (!player || !player.state === 'waiting') {
+        return {
+          to: [playerId],
+          text: "Whoops, looks like you're either not part of an active game, or the game has already started!"
+        }
+      }
+      const text = await this._startGame();
+      const to = allPlayerNumbers
+      return {text, to};
+
+    } else if (input.match(/end game/i)) {
+      return { text: this._endGame(), to: [playerId] }
     }
 
-    return twilioClient.sync.services(this.syncSID)
-      .documents
-      .create({uniqueName: this.name, data: initData})
-      .then((game) => {
-        this.gameData = game.data;
-        return game;
-      })
-      .catch((err) => {
-        throw err;
-      });
-  }
-
-  async fetch() {
-    return twilioClient.sync.services(this.syncSID)
-      .documents(this.name)
-      .fetch()
-      .then((game) => {
-        this.gameData = game.data;
-        return game;
-      })
-      .catch((err) => {
-        throw err;
-      });
-  }
-
-  async addPlayer(playerId, username) {
-    this.gameData.scores[playerId] = 0;
-    username = username ? username : playerId;
-    this.gameData.playerIdToUserName[playerId] = username;
-    const numPlayers = Object.keys(this.gameData.scores).length;
-    if (numPlayers === this.maxPlayers) {
-      return numPlayers;
+    let response = {};
+    switch (player.state) {
+      case 'defining':
+        this._logResponse('definition', playerId, input);
+        player.state = 'voting';
+        response.text = "Roger that, I've logged your definition!"
+        response.to = [playerId]
+        break;
+      case 'voting':
+        this._logResponse('vote', playerId, input);
+        player.state = 'waiting';
+        response.text = "Got it. Your vote is in the books!"
+        response.to = [playerId]
+        break;
     }
-    return this._updateGame().then(() => Promise.resolve(numPlayers));
+
+    if (this._isGamePhaseComplete()) {
+      switch (this.data.state) {
+        case 'defining':
+          response.text = this._startVoting();
+          response.to = allPlayerNumbers
+          break;
+        case 'voting':
+          response.text = this._scoreRound();
+          response.to = allPlayerNumbers
+
+          if (this.data.numCompletedRounds >= this.totalNumRounds) {
+            response.text += '\n';
+            response.text += this._endGame();
+          } else {
+            response.text += '\n'
+            this.data.numCompletedRounds += 1;
+            response.text += await this._startRound();
+          }
+          break;
+      }
+    }
+
+    return response;
   }
 
-  async startRound() {
-    this.gameData.state = 'active';
-    this.gameData.currentRound.definitionIdx = Math.floor(Math.random() * Object.keys(this.gameData.scores).length + 1);
+  _isGamePhaseComplete() {
+    switch (this.data.state) {
+      case 'pending':
+        return false;
+      case 'defining':
+        return _.every(this.data.players, {state: 'voting'});
+      case 'voting':
+        return _.every(this.data.players, {state: 'waiting'});
+      default:
+        throw new Error(`Invalid game state: ${this.data.state}`)
+    }
+  }
 
+  _startVoting() {
+    this.data.state = 'voting';
+    this.data.currentRound.responses.push({
+      playerId: 'realDefinition',
+      definition: this.data.currentRound.definition,
+      votes: []
+    });
+
+    this.data.currentRound.responses = _.shuffle(this.data.currentRound.responses);
+
+    let definitionsMessage = 'Vote for the definition you think is real by responding with the number of your choice.\n';
+    this.data.currentRound.responses.forEach((response, index) => {
+      definitionsMessage += `${index + 1}: ${response.definition}\n`;
+    });
+
+    return definitionsMessage;
+  }
+
+  _startVoting() {
+    this.data.state = 'voting';
+    this.data.currentRound.responses.push({
+      playerId: 'realDefinition',
+      definition: this.data.currentRound.definition,
+      votes: []
+    });
+
+    this.data.currentRound.responses = _.shuffle(this.data.currentRound.responses);
+
+    let definitionsMessage = 'Vote for the definition you think is real by responding with the number of your choice.\n';
+    this.data.currentRound.responses.forEach((response, index) => {
+      definitionsMessage += `${index + 1}: ${response.definition}\n`;
+    });
+
+    return definitionsMessage;
+  }
+
+  _scoreRound() {
+    for (let response of this.data.currentRound.responses) {
+      if (response.playerId === 'realDefinition') {
+        for (let voterId of response.votes) {
+          this.data.players[voterId].score += 2;
+        }
+      } else {
+        this.data.players[response.playerId].score += response.votes.length;
+      }
+    }
+
+    this.data.rankings = Object.keys(this.data.players)
+      .sort((a, b) => {return this.data.players[b].score - this.data.players[a].score});
+
+    let roundSummary = `The real answer was: ${this.data.currentRound.definition}\n`;
+    roundSummary += 'The scores after this round are:\n';
+    for (let playerId in this.data.players) {
+      const player = this.data.players[playerId];
+      roundSummary += `${player.username}: ${player.score}\n`;
+    }
+
+    return roundSummary;
+  }
+
+  _endGame() {
+    let message;
+    if (this.data.state === 'pending') {
+      message = "There's no active game to end! Respond with 'Join game' to join a new game.";
+    } else {
+      message = `And the final results are in! The winner of this game is...\n\n${this.data.players[this.data.rankings[0]].username}! Congratulations, you're a real wordsmith!`
+    }
+
+    this.data = _.cloneDeep(INIT_GAME_DATA);
+    return message;
+  }
+
+  _addPlayer(playerId, username) {
+    if (this.data.players[playerId]) {
+      return "You're already in! Respond with 'Start game' to get this show on the road."
+    } else if (Object.keys(this.data.players).length === this.maxPlayers) {
+      return "This game is already full! Try joining for the next game."
+    }
+
+    this.data.players[playerId] = {
+      username: username,
+      score: 0,
+      state: 'waiting'
+    }
+
+    return "You're in! Respond with 'start game' when all players have joined."
+  }
+
+  _setPlayerStates(state) {
+    for (let playerId in this.data.players) {
+      this.data.players[playerId].state = state;
+    }
+  }
+
+  async _startGame() {
+    if (Object.keys(this.data.players).length < this.minPlayers) {
+      return `There aren't enough players yet to start a game! Make sure you have at least ${this.minPlayers} to play.`
+    }
+    return this._startRound();
+  }
+
+  async _startRound() {
+    this.data.currentRound = _.cloneDeep(INIT_ROUND_DATA);
+    this.data.state = 'defining';
+    this._setPlayerStates('defining');
+    await this._setRoundWord();
+
+    return `Round #${this.data.numCompletedRounds + 1}: Respond with your most convincing definition for the word:
+      '${this.data.currentRound.word}'.`;
+  }
+
+  async _setRoundWord() {
     let wordIdx = Math.floor(Math.random() * balderdashWords.length);
-    while (this.gameData.seenWords.indexOf(balderdashWords[wordIdx]) > -1) {
+    while (this.data.seenWords.indexOf(balderdashWords[wordIdx]) > -1) {
       wordIdx = Math.floor(Math.random() * balderdashWords.length);
     }
-    this.gameData.currentRound.word = balderdashWords[wordIdx];
+    this.data.currentRound.word = balderdashWords[wordIdx];
     let definitionsResponse;
     try {
       definitionsResponse = await axios.get(getWordnikUrl(balderdashWords[wordIdx], this.context.WORDNIK_API_KEY));
@@ -99,161 +255,65 @@ class Game {
       if (definition.text) {
         // HACK: Some definitions include a limited set of html tags. Because we generally don't
         // expect the definitions to have other angle brackets, we naively strip tags from the string.
-        this.gameData.currentRound.definition = definition.text.replace(/<([^>]+)>/ig, '');
+        this.data.currentRound.definition = definition.text.replace(/<([^>]+)>/ig, '');
         break;
       }
     }
-
-    return this._updateGame().then(() => {
-      const message = `Round #${this.gameData.numCompletedRounds + 1}: Respond with your most convincing definition for the word:
-        '${this.gameData.currentRound.word}'. Be sure to start your response with 'Definition'.`;
-      return this._sendToAllPlayers(message);
-    })
   }
 
-  async logResponse(responseType, playerId, message) {
-    if (responseType === 'definition') {
-      const definition = message.replace(/definition/i, '').trim();
-
-      // Insert the real definition at the pre-determined random index in the responses.
-      if (this.gameData.currentRound.responses.length === this.gameData.currentRound.definitionIdx - 1) {
-        this.gameData.currentRound.responses.push({
-          playerId: 'true',
-          definition: this.gameData.currentRound.definition,
+  _logResponse(responseType, playerId, message) {
+    switch (responseType) {
+      case 'definition':
+        this.data.currentRound.responses.push({
+          playerId,
+          definition: message,
           votes: []
         });
-      }
-
-      this.gameData.currentRound.numDefinitionsSubmit++;
-      this.gameData.currentRound.responses.push({
-        playerId: playerId,
-        definition: definition,
-        votes: []
-      });
-
-    } else if (responseType === 'vote') {
-      const voteIdx = parseInt(message.trim()) - 1;
-      this.gameData.currentRound.numVotesSubmit++;
-      this.gameData.currentRound.responses[voteIdx].votes.push(playerId);
-    } else {
-      throw new Error(`Invalid responseType ${responseType}`);
+        break;
+      case 'vote':
+        const voteIdx = parseInt(message) - 1;
+        this.data.currentRound.responses[voteIdx].votes.push(playerId);
+        break;
+      default:
+        throw new Error(`Invalid responseType: ${responseType}`);
     }
-
-    return this._updateGame();
+    return;
   }
 
-  async checkRound(roundPhase) {
-    if (roundPhase === 'definition') {
-      const isLastPlayer = this.gameData.currentRound.numDefinitionsSubmit === Object.keys(this.gameData.scores).length;
-      // All players have submitted definitions, trigger voting round by sending definitions
-      if (isLastPlayer) {
-        let definitions = '';
-        this.gameData.currentRound.responses.forEach((response, index) => {
-          definitions += `${index + 1}: ${response.definition}\n`;
-        });
-        this._sendToAllPlayers("Vote for the definition you think is real by responding with the number of your choice.");
-        // Wait a bit to ensure order of SMS delivery
-        await sleep();
-        await this._sendToAllPlayers(definitions);
-      } else {
-        return "Roger that, I've logged your definition. Keep an eye out for the voting round!";
-      }
-
-    } else if (roundPhase === 'vote') {
-      const isLastPlayer = this.gameData.currentRound.numVotesSubmit === Object.keys(this.gameData.scores).length;
-      // All players have voted, score the round and send a score summary
-      if (isLastPlayer) {
-        await this._scoreRound();
-        let roundSummary = `The real answer was: ${this.gameData.currentRound.definition}\n`;
-        roundSummary += 'Scores:\n';
-        for (let playerId in this.gameData.scores) {
-          roundSummary += `${this.gameData.playerIdToUserName[playerId]}: ${this.gameData.scores[playerId]}\n`;
-        }
-        await this._sendToAllPlayers(roundSummary);
-        // Wait a bit to ensure order of SMS delivery
-        await sleep();
-
-        // All rounds are complete, end the game
-        if (this.gameData.numCompletedRounds === this.numRounds) {
-          await this._sendToAllPlayers(`Aaand the final results are in...the winner is ${this.gameData.playerIdToUserName[this.gameData.rankings[0]]}!`);
-          await this.removeGame();
-
-        // This round is over, start a new round
-        } else {
-          await this._resetRound();
-          await this.startRound();
-        }
-      } else {
-        return "Thanks for that...I'll score this round and let you know the results in a jif!"
-      }
-    } else {
-      throw new Error(`Invalid roundPhase ${roundPhase}`)
-    }
-  }
-
-  async removeGame() {
-    this.twilioClient.sync.services(this.syncSID)
-      .documents(this.name)
-      .remove()
-      .then(() => {
-        return
+  async _init() {
+    return twilioClient.sync.services(this.syncSID)
+      .documents
+      .create({uniqueName: this.name, data: _.cloneDeep(INIT_GAME_DATA)})
+      .then((game) => {
+        this.data = game.data;
+        return game;
+      })
+      .catch((err) => {
+        throw err;
       });
   }
 
-  async _resetRound() {
-    this.gameData.numCompletedRounds++;
-    this.gameData.seenWords.push(this.gameData.currentRound.word);
-    this.gameData.currentRound = {
-      word: null,
-      definition: null,
-      definitionIdx: null,
-      responses: [],
-      numDefinitionsSubmit: 0,
-      numVotesSubmit: 0
-    }
-
-    return this._updateGame();
-  }
-
-  async _sendToAllPlayers(message) {
-    const playerNumbers = Object.keys(this.gameData.scores);
-    async.each(playerNumbers, async (number) => {
-      await this.twilioClient.messages
-        .create({
-          body: message,
-          from: this.gameNumber,
-          to: number
-        })
-      return true;
-    }, (err) => {
-      if (err) throw err;
-    })
-  }
-
-  async _scoreRound() {
-    for (let response of this.gameData.currentRound.responses) {
-      if (response.playerId === 'true') {
-        for (let voterId of response.votes) {
-          this.gameData.scores[voterId] += 2;
-        }
-      } else {
-        this.gameData.scores[response.playerId] += response.votes.length;
-      }
-    }
-
-    this.gameData.rankings = Object.keys(this.gameData.scores)
-      .sort((a, b) => {return this.gameData.scores[b] - this.gameData.scores[a]});
-
-    return this._updateGame();
-  }
-
-  async _updateGame() {
+  async _fetch() {
     return twilioClient.sync.services(this.syncSID)
       .documents(this.name)
-      .update({data: this.gameData})
+      .fetch()
       .then((game) => {
-        this.gameData = game.data;
-        return Promise.resolve(this.gameData);
+        this.data = game.data;
+        return game;
+      })
+      .catch((err) => {
+        throw err;
+      });
+  }
+
+  // TODO: Can we make these updates granular instead of overwriting full data object every time?
+  async update() {
+    return twilioClient.sync.services(this.syncSID)
+      .documents(this.name)
+      .update({data: this.data})
+      .then((game) => {
+        this.data = game.data;
+        return Promise.resolve(this.data);
       })
       .catch((err) => {
         throw err;
@@ -265,13 +325,4 @@ module.exports = Game;
 
 function getWordnikUrl(word, key) {
     return `https://api.wordnik.com/v4/word.json/${word}/definitions?limit=200&includeRelated=false&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=${key}`;
-}
-
-function timeout(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function sleep() {
-  await timeout(1000);
-  return;
 }

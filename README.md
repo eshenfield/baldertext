@@ -17,7 +17,7 @@ Each player gets `1 point` for every other player who chooses their fake definit
 ### How to Play
 BalderText supports 2-8 players.
 1. Every player texts ‘Join game’ to your game number with a username. When all players have joined, one player kicks off the game by texting ‘Start game’ to the game number.
-2. All players receive the same word in a text, with a prompt to generate a fake definition for the word that other players will be likely to pick. The players are prompted to respond with ‘Definition ______’ (including their made-up definition).
+2. All players receive the same word in a text, with a prompt to generate a fake definition for the word that other players will be likely to pick. The players are prompted to respond with their made-up definition.
 3. Once everyone has submitted their fake definition, all players receive every submitted definition as well as the real definition (in random order). Each player votes on which definition they think is the real one.
 4. After scoring, the round ends and the game sends a score summary to each player before starting the next round.
 5. After 4 rounds, the game ends and the player with the most points wins.
@@ -43,7 +43,7 @@ These are the commands you can text to your configured BalderText number:
     <td>Stops and removes the active game, if there is one. Players have to rejoin using the <code>Join game</code> command before starting a new game.</td>
   </tr>
   <tr>
-    <td><code>Definition &ltdefinition></code></td>
+    <td><code>&ltdefinition></code></td>
     <td>Submits a definition for a player. Punctuation and capitalization is preserved in the player's response.</td>
   </tr>
   <tr>
