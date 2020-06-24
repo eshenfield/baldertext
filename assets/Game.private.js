@@ -69,7 +69,7 @@ class Game {
       return {text, to};
 
     } else if (input.match(/end game/i)) {
-      return { text: this._endGame(), to: [playerId] }
+      return { text: this._endGame(), to: allPlayerNumbers }
     }
 
     let response = {};
@@ -208,7 +208,7 @@ class Game {
     }
 
     this.data.players[playerId] = {
-      username: username,
+      username: username || playerId,
       score: 0,
       state: 'waiting'
     }
