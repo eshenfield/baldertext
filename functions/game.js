@@ -6,22 +6,15 @@ exports.handler = async function(context, event, callback) {
   await baldertextGame.load();
 
   const response = await baldertextGame.handlePlayerInput(playerId, event.Body)
-  await baldertextGame.update(response.updates);
-  await sendMessage(context, baldertextGame.gameNumber, response);
-  return callback();
-}
+  await baldertextGame.update();
 
-const sendMessage = async function(context, gameNumber, message) {
-  twilioClient = context.getTwilioClient();
-  async.each(message.to, async (number) => {
-    await this.twilioClient.messages
-      .create({
-        body: message.text,
-        from: gameNumber,
-        to: number
-      })
-    return;
-  }, (err) => {
-    if (err) throw err;
-  })
+  async.each(response.to, (number, asyncCb) => {
+    context.getTwilioClient().messages.create({
+      body: response.text,
+      from: baldertextGame.gameNumber,
+      to: number
+    }).then(asyncCb);
+  }, (results, err) => {
+    return callback(err);
+  });
 }
